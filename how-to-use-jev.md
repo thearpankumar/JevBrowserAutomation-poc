@@ -53,7 +53,7 @@ You can ask multiple questions in one request — each key under `questions` get
 | Type | `criteria` shape | Answer shape | Use for |
 |---|---|---|---|
 | `noul` | `{ "true": "...", "false": "..." }` — description of each outcome | `{ "noul": 0.0–1.0 }` (probability of "true") | Yes/no judgments |
-| `choice` | Array of option labels | `{ "choice": "<one of the labels>" }` | Picking one option from a fixed list |
+| `choice` | Record: `{ "<option key>": "<description>" }` — **not** an array; the live API returns `400 Invalid input: expected record, received array` for an array | `{ "choice": "<one of the keys>" }` | Picking one option from a fixed list |
 | `score` | Array of ordered labels (low → high) | `{ "score": <float>, "confidence": <float>, "probabilities": {...}, "legend": {...} }` | Rating something on an ordered scale |
 
 ## Example
