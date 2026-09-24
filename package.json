@@ -1,0 +1,21 @@
+{
+  "name": "jev-browser-automation-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "POC: BOM component sourcing from Distrelec (Playwright + Jev judgment) and DigiKey (Product Information V4 API)",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p .",
+    "source": "tsx src/cli.ts",
+    "install:browsers": "playwright install chromium"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright": "^1.47.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
