@@ -24,7 +24,7 @@ Run it — arguments are part number, manufacturer, package, quantity (manufactu
 npm run source -- STM32F407VGT6 STMicroelectronics LQFP-100 100
 ```
 
-**What to expect:** takes roughly 30–60 seconds. A real Chrome window will briefly pop up on screen partway through — that's expected, it's Distrelec's side actually searching their live site, not an error. Output is a side-by-side results table (DigiKey vs. Distrelec: manufacturer, price, stock, a confidence score) followed by the full JSON, including Jev's reasoning trace for the Distrelec result.
+**What to expect:** takes roughly 30–60 seconds. A real (but off-screen positioned) Chrome window briefly runs in the background partway through — that's Distrelec's side actually searching their live site, not an error; it's kept out of the way rather than popping up on screen. Output is a side-by-side results table (DigiKey vs. Distrelec: manufacturer, price, stock, a confidence score) followed by the full JSON, including Jev's reasoning trace for the Distrelec result.
 
 ### Demo-ready commands (confirmed matches on both DigiKey and Distrelec)
 
@@ -46,6 +46,18 @@ npm run source -- STM32F407VGT6 STMicroelectronics LQFP-100 100 && npm run sourc
 ```
 
 Note: not every part number Distrelec is asked about will return a match — that's expected and correct (they stock a different catalog than DigiKey; see Status below), not a bug. The three above are confirmed working on both suppliers specifically so a live demo shows the full comparison rather than a "not found" row.
+
+### Web UI (for a client-facing demo)
+
+A simple browser-based version of the same thing — type a part number, get results, no terminal needed:
+
+```bash
+npm run web
+```
+
+Then open **http://localhost:3000** in a browser. Enter a part number (manufacturer is optional but improves match accuracy, same as the CLI), click Search. Results show as a card per supplier — manufacturer, price, stock, and a confidence badge (High confidence / Needs review / Low confidence, using the same 0.85 / 0.40 thresholds as the target architecture's Confidence Gate), with a link through to the actual product page.
+
+Same underlying pipeline as the CLI (`src/source.ts` is shared by both) — no separate logic to keep in sync. The Distrelec browser session still runs the same way (headed, positioned off-screen) as described above.
 
 ## Contents
 

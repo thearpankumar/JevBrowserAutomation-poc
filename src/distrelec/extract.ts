@@ -137,7 +137,10 @@ function parseProductFields(rawText: string): Pick<ExtractedProductData, "mpn" |
     mpn: mpnMatch?.[1] ?? null,
     manufacturer: manufacturerMatch?.[1] ?? null,
     package: null, // not reliably labeled on the page; left to Jev's judgment on rawText
-    price: priceMatch ? `CHF ${priceMatch[1]}` : null,
+    // Bare number, no currency prefix — currency is tracked separately on
+    // the final SourcingResult. Baking it in here duplicated it downstream
+    // (e.g. a UI showing currency + price as one string got "CHF CHF 1.01").
+    price: priceMatch ? priceMatch[1] : null,
     stock: totalStock !== null ? String(totalStock) : null,
     description: null, // DOM fallback path — rawText carries this context instead
   };
@@ -162,7 +165,8 @@ export function productDataFromApi(
     mpn: apiProduct?.typeName ?? null,
     manufacturer: apiProduct?.distManufacturer?.name ?? null,
     package: null, // not a distinct labeled field in the API response either — see `description`
-    price: price?.value != null ? `${price.currencyIso ?? ""} ${price.value}`.trim() : null,
+    // Bare number, no currency prefix — see the note in parseProductFields above.
+    price: price?.value != null ? String(price.value) : null,
     stock: stockLevelTotal !== undefined ? String(stockLevelTotal) : null,
     description: apiProduct?.description ?? null,
     rawText,

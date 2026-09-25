@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Component Sourcing Search</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <h1>Component Sourcing Search</h1>
+    <p class="sub">Enter a part number to check DigiKey and Distrelec at once.</p>
+
+    <form id="searchForm" class="search-form">
+      <div class="field">
+        <label for="mpn">Part number</label>
+        <input id="mpn" name="mpn" type="text" placeholder="e.g. STM32F407VGT6" required autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="manufacturer">Manufacturer <span class="optional">(optional, improves accuracy)</span></label>
+        <input id="manufacturer" name="manufacturer" type="text" placeholder="e.g. STMicroelectronics" autocomplete="off" />
+      </div>
+      <button type="submit" id="searchBtn">Search</button>
+    </form>
+
+    <div id="status" class="status" hidden></div>
+    <div id="results" class="results"></div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

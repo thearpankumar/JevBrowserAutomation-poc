@@ -1,7 +1,6 @@
 import "dotenv/config";
-import { ComponentRequirement, SourcingResult } from "./types.js";
-import { sourceFromDistrelec } from "./distrelec/pipeline.js";
-import { sourceFromDigikey } from "./digikey/pipeline.js";
+import { ComponentRequirement } from "./types.js";
+import { sourceFromBoth } from "./source.js";
 
 async function main() {
   const [mpn, manufacturer, pkg, qtyArg] = process.argv.slice(2);
@@ -20,21 +19,10 @@ async function main() {
 
   console.log(`\nSourcing ${requirement.mpn} (qty ${requirement.qty})...\n`);
 
-  const [digikey, distrelec] = await Promise.allSettled([
-    sourceFromDigikey(requirement),
-    sourceFromDistrelec(requirement),
-  ]);
+  const { results, errors } = await sourceFromBoth(requirement);
 
-  const results: SourcingResult[] = [];
-  for (const [label, settled] of [
-    ["DigiKey", digikey],
-    ["Distrelec", distrelec],
-  ] as const) {
-    if (settled.status === "fulfilled") {
-      results.push(settled.value);
-    } else {
-      console.error(`[${label}] pipeline failed:`, settled.reason);
-    }
+  for (const e of errors) {
+    console.error(`[${e.supplier}] pipeline failed:`, e.message);
   }
 
   console.table(

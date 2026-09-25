@@ -95,7 +95,10 @@ async function runDistrelecPipeline(requirement: ComponentRequirement): Promise<
       mpn: requirement.mpn,
       manufacturer: extracted.manufacturer,
       price: extracted.price,
-      currency: apiPrice?.price?.currencyIso ?? null,
+      // Distrelec (Swiss store) always prices in CHF — default to it when the
+      // price API wasn't captured (DOM-fallback path) rather than leaving a
+      // real price with no currency attached.
+      currency: apiPrice?.price?.currencyIso ?? (extracted.price ? "CHF" : null),
       // `parseInt(...) || null` would silently turn a genuine "0 in stock"
       // result into `null`, since 0 is falsy — indistinguishable from a
       // failed capture. Check for NaN explicitly instead.

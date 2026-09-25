@@ -18,7 +18,14 @@ const REALISTIC_USER_AGENT =
  * anti-bot handling or a legitimate access agreement with Distrelec.
  */
 export async function launchBrowser(opts: { headless?: boolean } = {}): Promise<Browser> {
-  return chromium.launch({ headless: opts.headless ?? false });
+  return chromium.launch({
+    headless: opts.headless ?? false,
+    // Headed (not headless) is what gets past bot detection — see the note
+    // above. Positioning the window off-screen keeps it out of the way
+    // (e.g. behind a UI someone's using) without making it headless, which
+    // would bring the detection problem straight back.
+    args: ["--window-position=-2400,0", "--window-size=1280,900"],
+  });
 }
 
 async function newStealthPage(browser: Browser): Promise<Page> {
