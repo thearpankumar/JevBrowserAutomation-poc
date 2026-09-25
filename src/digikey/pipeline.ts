@@ -33,40 +33,39 @@ function resultFromProduct(product: DigikeyProduct, requirement: ComponentRequir
   };
 }
 
-function looselyMatchesManufacturer(candidate: string | undefined, required: string | undefined): boolean {
-  if (!candidate || !required) return false;
-  const a = candidate.toLowerCase();
-  const b = required.toLowerCase();
-  return a.includes(b) || b.includes(a);
-}
-
 /**
  * Resolves the "duplicate products across manufacturers" case: pulls the
- * real candidate list via KeywordSearch and filters by the requirement's
- * manufacturer.
+ * real candidate list via KeywordSearch. With no manufacturer given to
+ * filter by, every distinct manufacturer with an exact MPN match is a
+ * legitimate, separate result — not narrowed down to one.
  */
-async function resolveAmbiguousMatch(requirement: ComponentRequirement): Promise<SourcingResult | null> {
-  if (!requirement.manufacturer) {
-    return null; // nothing to filter by — can't resolve, caller falls back to not-found
-  }
-
+async function resolveAmbiguousMatches(requirement: ComponentRequirement): Promise<SourcingResult[]> {
   const candidates = await searchDigikeyByKeyword(requirement.mpn);
-  const matches = candidates.filter(
-    (p) => p.ManufacturerProductNumber?.toLowerCase() === requirement.mpn.toLowerCase() && looselyMatchesManufacturer(p.Manufacturer?.Name, requirement.manufacturer)
-  );
+  const exactMatches = candidates.filter((p) => p.ManufacturerProductNumber?.toLowerCase() === requirement.mpn.toLowerCase());
 
-  if (matches.length === 1) {
-    console.log(`[DigiKey] ${requirement.mpn}: resolved ambiguity via manufacturer filter ("${requirement.manufacturer}") among ${candidates.length} candidate(s)`);
-    return resultFromProduct(matches[0], requirement);
+  const byManufacturer = new Map<string, DigikeyProduct>();
+  for (const p of exactMatches) {
+    const key = (p.Manufacturer?.Name ?? "").toLowerCase();
+    if (!key || byManufacturer.has(key)) continue;
+    byManufacturer.set(key, p);
   }
 
-  console.warn(
-    `[DigiKey] ${requirement.mpn}: manufacturer filter ("${requirement.manufacturer}") matched ${matches.length} of ${candidates.length} candidates — can't resolve uniquely`
+  if (byManufacturer.size === 0) {
+    console.warn(`[DigiKey] ${requirement.mpn}: keyword search found ${candidates.length} candidate(s) but none matched the MPN exactly`);
+    return [];
+  }
+
+  console.log(
+    `[DigiKey] ${requirement.mpn}: resolved ambiguity to ${byManufacturer.size} distinct manufacturer(s) among ${candidates.length} candidate(s): ${[
+      ...byManufacturer.values(),
+    ]
+      .map((p) => p.Manufacturer?.Name)
+      .join(", ")}`
   );
-  return null;
+  return [...byManufacturer.values()].map((p) => resultFromProduct(p, requirement));
 }
 
-export async function sourceFromDigikey(requirement: ComponentRequirement): Promise<SourcingResult> {
+export async function sourceFromDigikey(requirement: ComponentRequirement): Promise<SourcingResult[]> {
   let response;
   try {
     response = await fetchDigikeyProduct(requirement.mpn);
@@ -75,18 +74,18 @@ export async function sourceFromDigikey(requirement: ComponentRequirement): Prom
     // and should keep propagating rather than being treated as "not found".
     if (e instanceof DigikeyNotFoundError) {
       if (/duplicate products/i.test(e.message)) {
-        const resolved = await resolveAmbiguousMatch(requirement);
-        if (resolved) return resolved;
+        const resolved = await resolveAmbiguousMatches(requirement);
+        if (resolved.length > 0) return resolved;
       }
-      return notFoundResult(requirement, e.message);
+      return [notFoundResult(requirement, e.message)];
     }
     throw e;
   }
 
   const product = response.Product;
   if (!product) {
-    return notFoundResult(requirement, "empty Product in response");
+    return [notFoundResult(requirement, "empty Product in response")];
   }
 
-  return resultFromProduct(product, requirement);
+  return [resultFromProduct(product, requirement)];
 }

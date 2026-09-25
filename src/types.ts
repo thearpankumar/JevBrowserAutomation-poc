@@ -1,6 +1,5 @@
 export interface ComponentRequirement {
   mpn: string;
-  manufacturer?: string;
   package?: string;
   qty: number;
 }
@@ -28,4 +27,6 @@ export interface CandidateResult {
   index: number;
   text: string;
   url: string | null;
+  /** From the search API's own doc, when available (see extract.ts#candidatesFromApiDocs) — null for DOM-scrape-fallback candidates. */
+  manufacturer?: string | null;
 }

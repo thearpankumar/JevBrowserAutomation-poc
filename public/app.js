@@ -3,6 +3,8 @@ const searchBtn = document.getElementById("searchBtn");
 const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
 
+const SUPPLIER_ORDER = ["DigiKey", "Distrelec"];
+
 function setStatus(kind, html) {
   if (!kind) {
     statusEl.hidden = true;
@@ -23,15 +25,16 @@ function confidenceBadge(confidence) {
   return { cls: "reject", label: "Low confidence" };
 }
 
-function renderResult(r) {
+// No manufacturer is given as input anymore — it's discovered per result,
+// so a single part-name search can come back with several manufacturer
+// cards under the same supplier. Each card is titled by manufacturer
+// instead of repeating the supplier name (that's now the section header).
+function renderResultCard(r) {
   const notFound = r.manufacturer == null && r.price == null && r.sourceUrl == null;
 
   if (notFound) {
     return `
       <div class="result-card">
-        <div class="result-head">
-          <div class="supplier-name">${r.supplier}</div>
-        </div>
         <div class="not-found">No match found — this supplier doesn't appear to stock this part.</div>
       </div>`;
   }
@@ -43,11 +46,13 @@ function renderResult(r) {
   return `
     <div class="result-card">
       <div class="result-head">
-        <div class="supplier-name">${r.supplier}</div>
+        <div>
+          <div class="label">Manufacturer</div>
+          <div class="supplier-name">${r.manufacturer ?? "Unknown manufacturer"}</div>
+        </div>
         <div class="badge ${badge.cls}">${badge.label} (${Math.round(r.confidence * 100)}%)</div>
       </div>
       <div class="result-grid">
-        <div><div class="label">Manufacturer</div><div class="value">${r.manufacturer ?? "—"}</div></div>
         <div><div class="label">Price</div><div class="value">${priceStr}</div></div>
         <div><div class="label">Stock</div><div class="value">${stockStr}</div></div>
       </div>
@@ -55,26 +60,47 @@ function renderResult(r) {
     </div>`;
 }
 
+function renderSupplierSection(supplier, results) {
+  const matchCount = results.filter((r) => r.manufacturer != null).length;
+  const subtitle = matchCount > 1 ? `<span class="section-sub">${matchCount} manufacturers found</span>` : "";
+
+  return `
+    <section class="supplier-section">
+      <h2 class="section-title">${supplier}${subtitle}</h2>
+      <div class="supplier-cards">${results.map(renderResultCard).join("")}</div>
+    </section>`;
+}
+
 // A supplier whose pipeline genuinely crashed (not a graceful "not found")
 // is reported in data.errors and simply absent from data.results — without
-// this, that supplier's card just silently never appears, with nothing to
-// explain why.
-function renderErrorCard(supplier, message) {
+// this, that supplier's section just silently never appears, with nothing
+// to explain why.
+function renderErrorSection(supplier, message) {
   return `
-    <div class="result-card">
-      <div class="result-head">
-        <div class="supplier-name">${supplier}</div>
-        <div class="badge reject">Error</div>
+    <section class="supplier-section">
+      <h2 class="section-title">${supplier}</h2>
+      <div class="supplier-cards">
+        <div class="result-card">
+          <div class="result-head"><div class="badge reject">Error</div></div>
+          <div class="not-found">Something went wrong checking this supplier: ${message}</div>
+        </div>
       </div>
-      <div class="not-found">Something went wrong checking this supplier: ${message}</div>
-    </div>`;
+    </section>`;
+}
+
+function groupBySupplier(results) {
+  const groups = new Map(SUPPLIER_ORDER.map((s) => [s, []]));
+  for (const r of results) {
+    if (!groups.has(r.supplier)) groups.set(r.supplier, []);
+    groups.get(r.supplier).push(r);
+  }
+  return groups;
 }
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const mpn = document.getElementById("mpn").value.trim();
-  const manufacturer = document.getElementById("manufacturer").value.trim();
   if (!mpn) return;
 
   searchBtn.disabled = true;
@@ -85,7 +111,7 @@ form.addEventListener("submit", async (e) => {
     const res = await fetch("/api/source", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mpn, manufacturer }),
+      body: JSON.stringify({ mpn }),
     });
 
     const data = await res.json();
@@ -105,8 +131,14 @@ form.addEventListener("submit", async (e) => {
       return;
     }
 
-    resultsEl.innerHTML =
-      results.map(renderResult).join("") + errors.map((e) => renderErrorCard(e.supplier, e.message)).join("");
+    const bySupplier = groupBySupplier(results);
+    let html = "";
+    for (const [supplier, supplierResults] of bySupplier) {
+      if (supplierResults.length > 0) html += renderSupplierSection(supplier, supplierResults);
+    }
+    html += errors.map((e) => renderErrorSection(e.supplier, e.message)).join("");
+
+    resultsEl.innerHTML = html;
   } catch (err) {
     setStatus("error", "Couldn't reach the server. Is it running?");
   } finally {

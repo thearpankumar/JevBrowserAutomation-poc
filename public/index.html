@@ -9,16 +9,12 @@
 <body>
   <main class="wrap">
     <h1>Component Sourcing Search</h1>
-    <p class="sub">Enter a part number to check DigiKey and Distrelec at once.</p>
+    <p class="sub">Enter a part number to check DigiKey and Distrelec at once — no manufacturer needed, we'll find and show every manufacturer that matches.</p>
 
     <form id="searchForm" class="search-form">
       <div class="field">
         <label for="mpn">Part number</label>
         <input id="mpn" name="mpn" type="text" placeholder="e.g. STM32F407VGT6" required autocomplete="off" />
-      </div>
-      <div class="field">
-        <label for="manufacturer">Manufacturer <span class="optional">(optional, improves accuracy)</span></label>
-        <input id="manufacturer" name="manufacturer" type="text" placeholder="e.g. STMicroelectronics" autocomplete="off" />
       </div>
       <button type="submit" id="searchBtn">Search</button>
     </form>

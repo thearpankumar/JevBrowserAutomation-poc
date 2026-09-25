@@ -22,7 +22,7 @@ export async function sourceFromBoth(requirement: ComponentRequirement): Promise
     ["Distrelec", distrelec],
   ] as const) {
     if (settled.status === "fulfilled") {
-      results.push(settled.value);
+      results.push(...settled.value);
     } else {
       errors.push({
         supplier,

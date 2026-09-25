@@ -16,6 +16,7 @@ export function candidatesFromApiDocs(docs: SearchApiDoc[]): CandidateResult[] {
     index,
     text: doc.title ?? doc.typeName ?? doc.productNumber ?? "(untitled)",
     url: doc.url ? new URL(doc.url, DISTRELEC_ORIGIN).toString() : null,
+    manufacturer: doc.distManufacturer ?? null,
   }));
 }
 

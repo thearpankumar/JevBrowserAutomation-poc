@@ -3,16 +3,15 @@ import { ComponentRequirement } from "./types.js";
 import { sourceFromBoth } from "./source.js";
 
 async function main() {
-  const [mpn, manufacturer, pkg, qtyArg] = process.argv.slice(2);
+  const [mpn, pkg, qtyArg] = process.argv.slice(2);
 
   if (!mpn) {
-    console.error("Usage: npm run source -- <MPN> [manufacturer] [package] [qty]");
+    console.error("Usage: npm run source -- <MPN> [package] [qty]");
     process.exit(1);
   }
 
   const requirement: ComponentRequirement = {
     mpn,
-    manufacturer,
     package: pkg,
     qty: qtyArg ? parseInt(qtyArg, 10) : 1,
   };

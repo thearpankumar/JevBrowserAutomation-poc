@@ -15,20 +15,15 @@ app.use(express.static(PUBLIC_DIR));
 
 app.post("/api/source", async (req, res) => {
   const mpn = typeof req.body?.mpn === "string" ? req.body.mpn.trim() : "";
-  const manufacturer = typeof req.body?.manufacturer === "string" ? req.body.manufacturer.trim() : undefined;
 
   if (!mpn) {
     res.status(400).json({ error: "Part number is required." });
     return;
   }
 
-  const requirement: ComponentRequirement = {
-    mpn,
-    manufacturer: manufacturer || undefined,
-    qty: 1,
-  };
+  const requirement: ComponentRequirement = { mpn, qty: 1 };
 
-  console.log(`[web] sourcing "${mpn}"${manufacturer ? ` (manufacturer: ${manufacturer})` : ""}...`);
+  console.log(`[web] sourcing "${mpn}"...`);
 
   try {
     const { results, errors } = await sourceFromBoth(requirement);
