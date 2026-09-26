@@ -72,8 +72,12 @@ develop-eggs/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored (not "lib/") — an unanchored pattern here would also match
+# frontend/src/lib/, a real hand-written source folder, not a Python
+# venv's lib/ directory. This bug silently kept 7 real files out of every
+# commit until it was caught by a CI failure (missing modules).
+/lib/
+/lib64/
 parts/
 sdist/
 var/
