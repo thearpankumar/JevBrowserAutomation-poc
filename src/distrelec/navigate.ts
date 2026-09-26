@@ -1,4 +1,7 @@
 import { Browser, chromium, Page } from "playwright";
+import { logger } from "../logger.js";
+
+const log = logger.child({ component: "distrelec" });
 
 // distrelec.com is just a country-selector page (Distrelec is now part of RS
 // Group; most countries redirect into rs-online.com). The Swiss store is the
@@ -73,7 +76,7 @@ async function waitForRealContent(page: Page, mpn: string, label: string): Promi
       timeout: 12000,
     })
     .catch(() => {
-      console.warn(`[Distrelec] ${mpn}: no matching API response observed on the ${label} within 12s — falling back to content wait`);
+      log.warn({ mpn, label }, "no matching API response observed within 12s — falling back to content wait");
     });
 
   // Content-based wait as a second, independent signal/fallback — cheap to
@@ -84,7 +87,7 @@ async function waitForRealContent(page: Page, mpn: string, label: string): Promi
     .first()
     .waitFor({ state: "attached", timeout: 8000 })
     .catch(() => {
-      console.warn(`[Distrelec] ${mpn} never appeared on the ${label} within 8s — proceeding anyway`);
+      log.warn({ mpn, label }, "never appeared within 8s — proceeding anyway");
     });
 
   // Small buffer for Angular to finish its DOM diff after the API response
@@ -154,15 +157,15 @@ export async function searchDistrelec(browser: Browser, mpn: string): Promise<Se
       try {
         const body = await res.json();
         const docs: SearchApiDoc[] = body?.response?.docs ?? [];
-        console.log(`[Distrelec] search API returned ${docs.length} doc(s) directly (no DOM scraping needed)`);
+        log.info({ docCount: docs.length }, "search API returned doc(s) directly (no DOM scraping needed)");
         return docs;
       } catch (e) {
-        console.warn(`[Distrelec] search API response body unreadable — falling back to DOM scraping: ${(e as Error).message}`);
+        log.warn({ err: (e as Error).message }, "search API response body unreadable — falling back to DOM scraping");
         return null;
       }
     })
     .catch(() => {
-      console.warn(`[Distrelec] search API response NOT observed within 12s — falling back to DOM scraping`);
+      log.warn("search API response NOT observed within 12s — falling back to DOM scraping");
       return null;
     });
 
@@ -233,7 +236,7 @@ export async function openCandidate(page: Page, url: string, mpn: string): Promi
   if (!apiAvailability) {
     const productIdMatch = url.match(/\/p\/(\d+)/);
     if (productIdMatch) {
-      console.warn(`[Distrelec] ${mpn}: availability response missed — requesting it directly instead of retrying the passive wait`);
+      log.warn({ mpn }, "availability response missed — requesting it directly instead of retrying the passive wait");
       try {
         const directRes = await page.request.get(
           `https://api.distrelec.com/rest/v2/distrelec_CH/products/availability?fields=FULL&productCodes=${productIdMatch[1]}&lang=en&curr=CHF&channel=B2B&country=CH`

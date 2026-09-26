@@ -2,6 +2,9 @@ import { Page } from "playwright";
 import { CandidateResult } from "../types.js";
 import { ExtractedProductData } from "../jev/verifySpec.js";
 import { AvailabilityApiDoc, PriceApiDoc, ProductApiDoc, SearchApiDoc } from "./navigate.js";
+import { logger } from "../logger.js";
+
+const log = logger.child({ component: "distrelec" });
 
 const MAX_CANDIDATES = 80;
 const DISTRELEC_ORIGIN = "https://www.distrelec.ch";
@@ -63,11 +66,13 @@ export async function extractCandidates(page: Page, mpn: string): Promise<Candid
     // require that shape too before treating extraction as done. (This only
     // affects the retry decision, not what Jev is allowed to pick from.)
     const hasLikelyProductMatch = candidates.some(
-      (c) => (c.text.toLowerCase().includes(mpn.toLowerCase()) || (c.url ?? "").toLowerCase().includes(mpn.toLowerCase())) && /\/p\/\d+/i.test(c.url ?? "")
+      (c) =>
+        (c.text.toLowerCase().includes(mpn.toLowerCase()) || (c.url ?? "").toLowerCase().includes(mpn.toLowerCase())) &&
+        /\/p\/\d+/i.test(c.url ?? "")
     );
     if (hasLikelyProductMatch) break;
 
-    console.warn(`[Distrelec] ${mpn} not among ${candidates.length} candidates yet (attempt ${attempt}/${maxAttempts}) — waiting and re-extracting`);
+    log.warn({ mpn, candidateCount: candidates.length, attempt, maxAttempts }, "not among candidates yet — waiting and re-extracting");
     await page.waitForTimeout(2000);
     candidates = await extractCandidatesOnce(page, mpn);
   }
@@ -125,14 +130,14 @@ async function extractCandidatesOnce(page: Page, mpn: string): Promise<Candidate
  * against the full `rawText`, so a parsing miss here degrades the report's
  * display, not the confidence score's correctness.
  */
-function parseProductFields(rawText: string): Pick<ExtractedProductData, "mpn" | "manufacturer" | "package" | "price" | "stock" | "description"> {
+function parseProductFields(
+  rawText: string
+): Pick<ExtractedProductData, "mpn" | "manufacturer" | "package" | "price" | "stock" | "description"> {
   const mpnMatch = rawText.match(/Manufacturer Part Number:\s*\n?\s*(\S+)/i);
   const manufacturerMatch = rawText.match(/Manufacturer:\s*\n?\s*(\S+)/i);
   const priceMatch = rawText.match(/CHF\s*([\d.,]+)\s*\n*\(Exc\.?\s*Vat\)/i) ?? rawText.match(/CHF\s*([\d.,]+)/i);
   const stockMatches = [...rawText.matchAll(/(\d[\d,]*)\s*In stock/gi)];
-  const totalStock = stockMatches.length
-    ? stockMatches.reduce((sum, m) => sum + parseInt(m[1].replace(/,/g, ""), 10), 0)
-    : null;
+  const totalStock = stockMatches.length ? stockMatches.reduce((sum, m) => sum + parseInt(m[1].replace(/,/g, ""), 10), 0) : null;
 
   return {
     mpn: mpnMatch?.[1] ?? null,
@@ -175,7 +180,12 @@ export function productDataFromApi(
 }
 
 export async function extractProductData(page: Page): Promise<ExtractedProductData> {
-  const rawText = (await page.locator("body").innerText().catch(() => "")).slice(0, 6000);
+  const rawText = (
+    await page
+      .locator("body")
+      .innerText()
+      .catch(() => "")
+  ).slice(0, 6000);
   return {
     ...parseProductFields(rawText),
     rawText,

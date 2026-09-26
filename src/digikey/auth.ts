@@ -10,14 +10,15 @@
 // 3-legged Authorization Code flow instead of client_credentials — not hit
 // yet for Product Information V4.
 
+import { getConfig } from "../config.js";
+
 const SANDBOX_TOKEN_URL = "https://sandbox-api.digikey.com/v1/oauth2/token";
 const LIVE_TOKEN_URL = "https://api.digikey.com/v1/oauth2/token";
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
 export function digikeyApiBase(): string {
-  const sandbox = (process.env.DIGIKEY_USE_SANDBOX ?? "false").toLowerCase() === "true";
-  return sandbox ? "https://sandbox-api.digikey.com" : "https://api.digikey.com";
+  return getConfig().digikey.useSandbox ? "https://sandbox-api.digikey.com" : "https://api.digikey.com";
 }
 
 export async function getDigikeyToken(): Promise<string> {
@@ -25,14 +26,8 @@ export async function getDigikeyToken(): Promise<string> {
     return cachedToken.value;
   }
 
-  const clientId = process.env.DIGIKEY_CLIENT_ID;
-  const clientSecret = process.env.DIGIKEY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    throw new Error("DIGIKEY_CLIENT_ID / DIGIKEY_CLIENT_SECRET are not set (see .env.example)");
-  }
-
-  const sandbox = (process.env.DIGIKEY_USE_SANDBOX ?? "false").toLowerCase() === "true";
-  const tokenUrl = sandbox ? SANDBOX_TOKEN_URL : LIVE_TOKEN_URL;
+  const { clientId, clientSecret, useSandbox } = getConfig().digikey;
+  const tokenUrl = useSandbox ? SANDBOX_TOKEN_URL : LIVE_TOKEN_URL;
 
   const res = await fetch(tokenUrl, {
     method: "POST",

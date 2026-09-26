@@ -1,4 +1,5 @@
 import { digikeyApiBase, getDigikeyToken } from "./auth.js";
+import { getConfig } from "../config.js";
 
 // Product Information V4 — ProductDetails by part number.
 // https://developer.digikey.com/products/product-information-v4/productsearch/productdetails
@@ -39,7 +40,7 @@ export class DigikeyNotFoundError extends Error {
 
 export async function fetchDigikeyProduct(mpn: string): Promise<DigikeyProductDetailsResponse> {
   const token = await getDigikeyToken();
-  const clientId = process.env.DIGIKEY_CLIENT_ID!;
+  const clientId = getConfig().digikey.clientId;
 
   const url = `${digikeyApiBase()}/products/v4/search/${encodeURIComponent(mpn)}/productdetails`;
   const res = await fetch(url, {
@@ -81,7 +82,7 @@ export async function fetchDigikeyProduct(mpn: string): Promise<DigikeyProductDe
  */
 export async function searchDigikeyByKeyword(keyword: string): Promise<DigikeyProduct[]> {
   const token = await getDigikeyToken();
-  const clientId = process.env.DIGIKEY_CLIENT_ID!;
+  const clientId = getConfig().digikey.clientId;
 
   const res = await fetch(`${digikeyApiBase()}/products/v4/search/keyword`, {
     method: "POST",

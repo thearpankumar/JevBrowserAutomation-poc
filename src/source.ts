@@ -9,10 +9,7 @@ export interface SourceBothResult {
 
 /** Shared by the CLI and the web server — one place that actually runs both suppliers. */
 export async function sourceFromBoth(requirement: ComponentRequirement): Promise<SourceBothResult> {
-  const [digikey, distrelec] = await Promise.allSettled([
-    sourceFromDigikey(requirement),
-    sourceFromDistrelec(requirement),
-  ]);
+  const [digikey, distrelec] = await Promise.allSettled([sourceFromDigikey(requirement), sourceFromDistrelec(requirement)]);
 
   const results: SourcingResult[] = [];
   const errors: SourceBothResult["errors"] = [];

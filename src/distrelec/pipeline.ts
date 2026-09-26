@@ -5,6 +5,9 @@ import { CandidateMatch, selectMatchingCandidates } from "../jev/disambiguate.js
 import { verifySpecMatch } from "../jev/verifySpec.js";
 import { JevResponse } from "../jev/client.js";
 import { Page } from "playwright";
+import { logger } from "../logger.js";
+
+const log = logger.child({ component: "distrelec" });
 
 // Raised from the old single-candidate budget: with no manufacturer given
 // up front, a part name can resolve to several distinct manufacturers, each
@@ -21,7 +24,10 @@ export async function sourceFromDistrelec(requirement: ComponentRequirement): Pr
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new Error(`Distrelec pipeline exceeded ${PIPELINE_TIMEOUT_MS}ms — see build-order note in extract.ts about unbounded loops`)),
+      () =>
+        reject(
+          new Error(`Distrelec pipeline exceeded ${PIPELINE_TIMEOUT_MS}ms — see build-order note in extract.ts about unbounded loops`)
+        ),
       PIPELINE_TIMEOUT_MS
     );
   });
@@ -58,38 +64,38 @@ function groupMatchesByManufacturer(matches: CandidateMatch[]): CandidateMatch[]
 }
 
 async function runDistrelecPipeline(requirement: ComponentRequirement): Promise<SourcingResult[]> {
-  console.log(`[Distrelec] ${requirement.mpn}: launching browser...`);
+  const plog = log.child({ mpn: requirement.mpn });
+  plog.info("launching browser...");
   const browser = await launchBrowser();
 
   try {
-    console.log(`[Distrelec] ${requirement.mpn}: searching...`);
+    plog.info("searching...");
     const { page: resultsPage, apiDocs } = await searchDistrelec(browser, requirement.mpn);
 
-    console.log(`[Distrelec] ${requirement.mpn}: extracting candidates...`);
+    plog.info("extracting candidates...");
     // Prefer the search API's own JSON (deterministic, complete) over
     // scraping the rendered DOM (subject to Angular's render-timing race —
     // see navigate.ts). Only fall back to DOM scraping if the API response
     // was never observed at all (site/endpoint change).
     const candidates = apiDocs !== null ? candidatesFromApiDocs(apiDocs) : await extractCandidates(resultsPage, requirement.mpn);
-    console.log(`[Distrelec] ${requirement.mpn}: found ${candidates.length} candidates (source: ${apiDocs !== null ? "search API" : "DOM scrape fallback"})`);
+    plog.info({ candidateCount: candidates.length, source: apiDocs !== null ? "search API" : "DOM scrape fallback" }, "found candidates");
 
     if (candidates.length === 0) {
       return [notFoundResult(requirement, "no candidates extracted from search results")];
     }
 
-    console.log(`[Distrelec] ${requirement.mpn}: asking Jev which candidates genuinely match...`);
+    plog.info("asking Jev which candidates genuinely match...");
     const { matches, raw: selectRaw } = await selectMatchingCandidates(requirement, candidates);
-    console.log(`[Distrelec] ${requirement.mpn}: Jev found ${matches.length} plausible match(es)`);
+    plog.info({ matchCount: matches.length }, "Jev found plausible match(es)");
 
     if (matches.length === 0) {
       return [notFoundResult(requirement, "Jev found no plausible match among candidates", { disambiguate: selectRaw })];
     }
 
     const representatives = groupMatchesByManufacturer(matches);
-    console.log(
-      `[Distrelec] ${requirement.mpn}: resolving ${representatives.length} distinct manufacturer(s): ${representatives
-        .map((m) => m.manufacturer ?? "(unknown)")
-        .join(", ")}`
+    plog.info(
+      { manufacturers: representatives.map((m) => m.manufacturer ?? "(unknown)") },
+      `resolving ${representatives.length} distinct manufacturer(s)`
     );
 
     const results: SourcingResult[] = [];
@@ -99,15 +105,20 @@ async function runDistrelecPipeline(requirement: ComponentRequirement): Promise<
         const result = await resolveCandidate(resultsPage, requirement, candidate, apiDocs, selectRaw);
         results.push(result);
       } catch (e) {
-        console.warn(
-          `[Distrelec] ${requirement.mpn}: failed to resolve candidate ${match.index} (${candidate.manufacturer ?? "unknown manufacturer"}): ${
-            e instanceof Error ? e.message : String(e)
-          }`
+        plog.warn(
+          {
+            candidateIndex: match.index,
+            manufacturer: candidate.manufacturer ?? "unknown manufacturer",
+            err: e instanceof Error ? e.message : String(e),
+          },
+          "failed to resolve candidate"
         );
       }
     }
 
-    return results.length > 0 ? results : [notFoundResult(requirement, "all matched candidates failed to resolve", { disambiguate: selectRaw })];
+    return results.length > 0
+      ? results
+      : [notFoundResult(requirement, "all matched candidates failed to resolve", { disambiguate: selectRaw })];
   } finally {
     await browser.close();
   }
@@ -132,7 +143,8 @@ async function resolveCandidate(
   const chosenApiDoc = apiDocs?.[candidate.index] ?? null;
   const packageFromSearch = packageFromDisplayFields(chosenApiDoc?.displayFields);
 
-  console.log(`[Distrelec] ${requirement.mpn}: opening candidate ${candidate.index} (${candidate.manufacturer ?? "unknown manufacturer"})...`);
+  const plog = log.child({ mpn: requirement.mpn });
+  plog.info({ candidateIndex: candidate.index, manufacturer: candidate.manufacturer ?? "unknown manufacturer" }, "opening candidate...");
   const { apiProduct, apiAvailability, apiPrice } = await openCandidate(resultsPage, candidate.url, requirement.mpn);
 
   // Same preference as the candidates step: structured API fields over
@@ -157,14 +169,12 @@ async function resolveCandidate(
         package: packageFromSearch ?? domExtracted.package,
         description: null,
       };
-  console.log(`[Distrelec] ${requirement.mpn}: package = ${extracted.package ?? "(unknown)"}`);
-  console.log(
-    `[Distrelec] ${requirement.mpn}: product data source: manufacturer/stock/price from ${apiExtracted ? "product API" : "DOM scrape fallback"}`
-  );
+  plog.info({ package: extracted.package ?? "(unknown)" }, "extracted package");
+  plog.info({ source: apiExtracted ? "product API" : "DOM scrape fallback" }, "product data source");
 
-  console.log(`[Distrelec] ${requirement.mpn}: asking Jev to verify spec match for ${extracted.manufacturer ?? "(unknown manufacturer)"}...`);
+  plog.info({ manufacturer: extracted.manufacturer ?? "(unknown manufacturer)" }, "asking Jev to verify spec match...");
   const { confidence, raw: verifyRaw } = await verifySpecMatch(requirement, extracted);
-  console.log(`[Distrelec] ${requirement.mpn}: Jev confidence = ${confidence} (${extracted.manufacturer ?? "unknown"})`);
+  plog.info({ confidence, manufacturer: extracted.manufacturer ?? "unknown" }, "Jev confidence");
 
   return {
     supplier: "Distrelec",
@@ -191,12 +201,8 @@ async function resolveCandidate(
   };
 }
 
-function notFoundResult(
-  requirement: ComponentRequirement,
-  reason: string,
-  jevTrace?: SourcingResult["jevTrace"]
-): SourcingResult {
-  console.warn(`[Distrelec] ${requirement.mpn}: not found — ${reason}`);
+function notFoundResult(requirement: ComponentRequirement, reason: string, jevTrace?: SourcingResult["jevTrace"]): SourcingResult {
+  log.warn({ mpn: requirement.mpn, reason }, "not found");
   return {
     supplier: "Distrelec",
     mpn: requirement.mpn,

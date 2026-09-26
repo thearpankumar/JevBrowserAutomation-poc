@@ -1,8 +1,15 @@
 import "dotenv/config";
 import { ComponentRequirement } from "./types.js";
 import { sourceFromBoth } from "./source.js";
+import { getConfig } from "./config.js";
+import { logger } from "./logger.js";
+
+const log = logger.child({ component: "cli" });
 
 async function main() {
+  // Fail fast on a missing/bad .env instead of after already printing "Sourcing X...".
+  getConfig();
+
   const [mpn, pkg, qtyArg] = process.argv.slice(2);
 
   if (!mpn) {
@@ -16,12 +23,12 @@ async function main() {
     qty: qtyArg ? parseInt(qtyArg, 10) : 1,
   };
 
-  console.log(`\nSourcing ${requirement.mpn} (qty ${requirement.qty})...\n`);
+  log.info({ mpn: requirement.mpn, qty: requirement.qty }, "sourcing...");
 
   const { results, errors } = await sourceFromBoth(requirement);
 
   for (const e of errors) {
-    console.error(`[${e.supplier}] pipeline failed:`, e.message);
+    log.error({ supplier: e.supplier, err: e.message }, "pipeline failed");
   }
 
   console.table(
@@ -41,6 +48,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Fatal error:", err);
+  log.error({ err }, "fatal error");
   process.exit(1);
 });

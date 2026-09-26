@@ -1,6 +1,6 @@
 # How to use Jev (via OpenRouter)
 
-**Jev** is TypeSafe AI's "System One" model — a *structured-decision* model, not a chat/prose model. You give it a `state` (your data) and a set of typed `questions`, and it returns typed answers (a choice, a true/false-style score, or a numeric score) — never generated text. Released 2026-09-15, currently version `jev-1.13.0`.
+**Jev** is TypeSafe AI's "System One" model — a _structured-decision_ model, not a chat/prose model. You give it a `state` (your data) and a set of typed `questions`, and it returns typed answers (a choice, a true/false-style score, or a numeric score) — never generated text. Released 2026-09-15, currently version `jev-1.13.0`.
 
 Use it when you need a fast, predictable, schema-constrained judgment (classification, routing, moderation, yes/no checks) rather than a generated explanation.
 
@@ -23,9 +23,9 @@ POST https://openrouter.ai/api/alpha/decisions
 
 ## Model IDs
 
-| ID | Meaning |
-|---|---|
-| `typesafe/jev-1.13` | Pinned to version 1.13 specifically |
+| ID                     | Meaning                                                                                                                           |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `typesafe/jev-1.13`    | Pinned to version 1.13 specifically                                                                                               |
 | `~typesafe/jev-latest` | Always the current latest version (resolves to a dated build, e.g. `typesafe/jev-1.13-20260917`, in the response's `model` field) |
 
 ## Request shape
@@ -50,11 +50,11 @@ You can ask multiple questions in one request — each key under `questions` get
 
 ### Question types
 
-| Type | `criteria` shape | Answer shape | Use for |
-|---|---|---|---|
-| `noul` | `{ "true": "...", "false": "..." }` — description of each outcome | `{ "noul": 0.0–1.0 }` (probability of "true") | Yes/no judgments |
-| `choice` | Record: `{ "<option key>": "<description>" }` — **not** an array; the live API returns `400 Invalid input: expected record, received array` for an array | `{ "choice": "<one of the keys>" }` | Picking one option from a fixed list |
-| `score` | Array of ordered labels (low → high) | `{ "score": <float>, "confidence": <float>, "probabilities": {...}, "legend": {...} }` | Rating something on an ordered scale |
+| Type     | `criteria` shape                                                                                                                                         | Answer shape                                                                           | Use for                              |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------ |
+| `noul`   | `{ "true": "...", "false": "..." }` — description of each outcome                                                                                        | `{ "noul": 0.0–1.0 }` (probability of "true")                                          | Yes/no judgments                     |
+| `choice` | Record: `{ "<option key>": "<description>" }` — **not** an array; the live API returns `400 Invalid input: expected record, received array` for an array | `{ "choice": "<one of the keys>" }`                                                    | Picking one option from a fixed list |
+| `score`  | Array of ordered labels (low → high)                                                                                                                     | `{ "score": <float>, "confidence": <float>, "probabilities": {...}, "legend": {...} }` | Rating something on an ordered scale |
 
 ## Example
 

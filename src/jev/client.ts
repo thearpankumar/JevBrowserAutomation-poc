@@ -1,5 +1,7 @@
 // Thin wrapper around Jev's decisions endpoint. See how-to-use-jev.md for the full reference.
 
+import { getConfig } from "../config.js";
+
 const JEV_ENDPOINT = "https://openrouter.ai/api/alpha/decisions";
 const JEV_MODEL = "~typesafe/jev-latest";
 
@@ -35,10 +37,7 @@ export interface JevResponse {
 }
 
 export async function askJev(request: JevRequest): Promise<JevResponse> {
-  const apiKey = process.env.OPENROUTER_JEV_API;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_JEV_API is not set (see .env.example)");
-  }
+  const apiKey = getConfig().openrouterJevApiKey;
 
   const res = await fetch(JEV_ENDPOINT, {
     method: "POST",

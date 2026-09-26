@@ -1,8 +1,11 @@
 import { ComponentRequirement, SourcingResult } from "../types.js";
 import { DigikeyNotFoundError, DigikeyProduct, fetchDigikeyProduct, searchDigikeyByKeyword } from "./client.js";
+import { logger } from "../logger.js";
+
+const log = logger.child({ component: "digikey" });
 
 function notFoundResult(requirement: ComponentRequirement, reason: string): SourcingResult {
-  console.warn(`[DigiKey] ${requirement.mpn}: not found — ${reason}`);
+  log.warn({ mpn: requirement.mpn, reason }, "not found");
   return {
     supplier: "DigiKey",
     mpn: requirement.mpn,
@@ -51,16 +54,20 @@ async function resolveAmbiguousMatches(requirement: ComponentRequirement): Promi
   }
 
   if (byManufacturer.size === 0) {
-    console.warn(`[DigiKey] ${requirement.mpn}: keyword search found ${candidates.length} candidate(s) but none matched the MPN exactly`);
+    log.warn(
+      { mpn: requirement.mpn, candidateCount: candidates.length },
+      "keyword search found candidate(s) but none matched the MPN exactly"
+    );
     return [];
   }
 
-  console.log(
-    `[DigiKey] ${requirement.mpn}: resolved ambiguity to ${byManufacturer.size} distinct manufacturer(s) among ${candidates.length} candidate(s): ${[
-      ...byManufacturer.values(),
-    ]
-      .map((p) => p.Manufacturer?.Name)
-      .join(", ")}`
+  log.info(
+    {
+      mpn: requirement.mpn,
+      candidateCount: candidates.length,
+      manufacturers: [...byManufacturer.values()].map((p) => p.Manufacturer?.Name),
+    },
+    `resolved ambiguity to ${byManufacturer.size} distinct manufacturer(s)`
   );
   return [...byManufacturer.values()].map((p) => resultFromProduct(p, requirement));
 }

@@ -1,28 +1,150 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Component Sourcing Search</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="/style.css" />
-</head>
-<body>
-  <main class="wrap">
-    <h1>Component Sourcing Search</h1>
-    <p class="sub">Enter a part number to check DigiKey and Distrelec at once — no manufacturer needed, we'll find and show every manufacturer that matches.</p>
+  <head>
+    <meta charset="utf-8" />
+    <title>Component Sourcing</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark">J</div>
+          <div>
+            <div class="brand-title">Component Sourcing</div>
+            <div class="brand-sub">DigiKey + Distrelec, matched and judged by Jev</div>
+          </div>
+        </div>
+      </header>
 
-    <form id="searchForm" class="search-form">
-      <div class="field">
-        <label for="mpn">Part number</label>
-        <input id="mpn" name="mpn" type="text" placeholder="e.g. STM32F407VGT6" required autocomplete="off" />
-      </div>
-      <button type="submit" id="searchBtn">Search</button>
-    </form>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" id="tabSingle" data-panel="panel-single" role="tab" aria-selected="true">
+          <span class="tab-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </span>
+          Single Part
+        </button>
+        <button class="tab" id="tabBatch" data-panel="panel-batch" role="tab" aria-selected="false">
+          <span class="tab-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="9" y1="13" x2="15" y2="13" />
+              <line x1="9" y1="17" x2="15" y2="17" />
+            </svg>
+          </span>
+          Batch (BOM)
+        </button>
+      </nav>
 
-    <div id="status" class="status" hidden></div>
-    <div id="results" class="results"></div>
-  </main>
+      <main class="tab-panels">
+        <section class="tab-panel active" id="panel-single">
+          <p class="panel-sub">
+            Enter a part number to check DigiKey and Distrelec at once — no manufacturer needed, we'll find and show every manufacturer that
+            matches.
+          </p>
 
-  <script src="/app.js"></script>
-</body>
+          <form id="searchForm" class="search-form">
+            <div class="field">
+              <label for="mpn">Part number</label>
+              <input id="mpn" name="mpn" type="text" placeholder="e.g. STM32F407VGT6" required autocomplete="off" />
+            </div>
+            <button type="submit" id="searchBtn">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Search
+            </button>
+          </form>
+
+          <div id="status" class="status" hidden></div>
+          <div id="results" class="results"></div>
+        </section>
+
+        <section class="tab-panel" id="panel-batch">
+          <p class="panel-sub">
+            Upload a CSV with a part-number column (e.g. "MPN" or "Part Number") — "Package" and "Qty" columns are optional.
+          </p>
+
+          <form id="batchForm">
+            <label for="bomFile" class="dropzone" id="dropzone">
+              <input id="bomFile" name="bomFile" type="file" accept=".csv,text/csv" required hidden />
+              <svg
+                class="dropzone-icon"
+                viewBox="0 0 24 24"
+                width="28"
+                height="28"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <div class="dropzone-text"><strong>Click to choose a file</strong> or drag a CSV here</div>
+              <div class="dropzone-filename" id="dropzoneFilename"></div>
+            </label>
+            <button type="submit" id="batchBtn" class="batch-submit">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              Upload &amp; run
+            </button>
+          </form>
+
+          <div id="batchStatus" class="status" hidden></div>
+          <div id="batchResults"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
 </html>
