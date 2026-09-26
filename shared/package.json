@@ -1,0 +1,17 @@
+{
+  "name": "@jev/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Types shared between the backend and frontend (types only — no runtime code).",
+  "type": "module",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --noEmit"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    // DOM is needed for code that runs inside Playwright's page.evaluate().
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    // Forces `import type` for type-only imports, so the types-only
+    // @jev/shared package can never end up as a runtime import in dist/.
+    "verbatimModuleSyntax": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts"]
+}

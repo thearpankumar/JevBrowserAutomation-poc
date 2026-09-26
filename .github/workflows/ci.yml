@@ -6,14 +6,14 @@ on:
   pull_request:
 
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -24,8 +24,13 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Typecheck
-        run: npx tsc -p . --noEmit
+      - name: Typecheck (shared, backend, frontend)
+        run: npm run typecheck
 
-      - name: Unit tests
+      - name: Unit + component tests (backend, frontend)
         run: npm test
+
+      # Real-supplier e2e (npm run e2e) is deliberately not run here: it needs
+      # live credentials and drives real DigiKey/Distrelec sessions.
+      - name: Production build (frontend + backend)
+        run: npm run build
