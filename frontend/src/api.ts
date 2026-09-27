@@ -1,11 +1,13 @@
 import type {
   AddToCartRequest,
   AddToCartResponse,
+  AddToDistrelecCartResponse,
   ApiErrorResponse,
   BatchJob,
   BomRowError,
   CartItem,
   DigikeyStatusResponse,
+  DistrelecStatusResponse,
   SourceRequest,
   SourceResponse,
   StartBatchRequest,
@@ -66,6 +68,9 @@ export const api = {
   getBatch: (jobId: string) => request<BatchJob>(`/api/batch/${encodeURIComponent(jobId)}`),
   digikeyStatus: () => request<DigikeyStatusResponse>("/api/digikey/status"),
   addToDigikeyCart: (items: CartItem[]) => postJson<AddToCartResponse>("/api/digikey/cart/add", { items } satisfies AddToCartRequest),
+  distrelecStatus: () => request<DistrelecStatusResponse>("/api/distrelec/status"),
+  addToDistrelecCart: (items: CartItem[]) =>
+    postJson<AddToDistrelecCartResponse>("/api/distrelec/cart/add", { items } satisfies AddToCartRequest),
 };
 
 export function exportCsvUrl(jobId: string): string {

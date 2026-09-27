@@ -3,10 +3,11 @@ import type { CartItem } from "@jev/shared";
 export type ParsedCartRequest = { ok: true; items: CartItem[] } | { ok: false; error: string };
 
 /**
- * Validates the untrusted JSON body of POST /api/digikey/cart/add. Every item
- * needs a non-empty part number; quantity falls back to 1 when missing or not
- * a positive number (it's the BOM's requested qty, not something to reject a
- * whole cart over).
+ * Validates the untrusted JSON body of POST /api/digikey/cart/add and
+ * POST /api/distrelec/cart/add — both take the same { items: CartItem[] }
+ * shape. Every item needs a non-empty part number; quantity falls back to 1
+ * when missing or not a positive number (it's the BOM's requested qty, not
+ * something to reject a whole cart over).
  */
 export function parseAddToCartRequest(body: unknown): ParsedCartRequest {
   const items = (body as { items?: unknown } | null)?.items;

@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "source": "tsx src/cli.ts",
+    "distrelec:login": "tsx src/distrelec/captureSession.ts",
     "typecheck": "tsc -p . --noEmit",
     "test": "vitest run",
     "install:browsers": "playwright install chromium"

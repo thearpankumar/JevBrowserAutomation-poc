@@ -31,10 +31,14 @@ export function useSelection(job: BatchJob | null) {
 
   return {
     selectedKeys,
+    /** The raw explicit choices (not the resolved selected set) — persisted across the DigiKey OAuth redirect. */
+    choices,
     toggle: (key: string, checked: boolean) => update((current) => new Map(current).set(key, checked)),
     /** Back to the defaults: exactly the confirmed matches. */
     selectConfirmed: () => update(() => NO_CHOICES),
     selectAll: () => setAll(true),
     clear: () => setAll(false),
+    /** Replaces the choices wholesale for a given job id — used to restore state saved before a DigiKey OAuth redirect. */
+    restore: (restoredJobId: string, restoredChoices: SelectionChoices) => setState({ jobId: restoredJobId, choices: restoredChoices }),
   };
 }

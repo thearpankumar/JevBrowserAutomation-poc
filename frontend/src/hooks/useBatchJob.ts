@@ -41,22 +41,10 @@ export function useBatchJob() {
     []
   );
 
-  const start = useCallback(async (file: File): Promise<void> => {
-    const run = ++runRef.current;
-    const isStale = () => run !== runRef.current;
-
-    setJob(null);
-    setError(null);
-    setPhase("uploading");
-
+  const pollUntilDone = useCallback(async (jobId: string, isStale: () => boolean): Promise<void> => {
     try {
-      const started = await api.startBatch(await file.text());
-      if (isStale()) return;
-      setPartCount(started.total);
-      setPhase("running");
-
       for (;;) {
-        const next = await api.getBatch(started.jobId);
+        const next = await api.getBatch(jobId);
         if (isStale()) return;
         setJob(next);
         if (next.status !== "running") {
@@ -74,5 +62,62 @@ export function useBatchJob() {
     }
   }, []);
 
-  return { job, phase, partCount, error, start };
+  const start = useCallback(
+    async (file: File): Promise<void> => {
+      const run = ++runRef.current;
+      const isStale = () => run !== runRef.current;
+
+      setJob(null);
+      setError(null);
+      setPhase("uploading");
+
+      try {
+        const started = await api.startBatch(await file.text());
+        if (isStale()) return;
+        setPartCount(started.total);
+        setPhase("running");
+        await pollUntilDone(started.jobId, isStale);
+      } catch (err) {
+        if (isStale()) return;
+        setError(toBatchError(err));
+        setPhase("failed");
+      }
+    },
+    [pollUntilDone]
+  );
+
+  /**
+   * Re-fetches a job saved (by id) before a full-page redirect — e.g. the
+   * DigiKey OAuth round trip, which wipes all in-memory React state. Resumes
+   * polling if the job was still running when the user left. Returns false
+   * (leaving state untouched) if the job can't be found, e.g. the server
+   * restarted since — the job store is in-memory only.
+   */
+  const restore = useCallback(
+    async (jobId: string): Promise<boolean> => {
+      const run = ++runRef.current;
+      const isStale = () => run !== runRef.current;
+
+      let fetched: BatchJob;
+      try {
+        fetched = await api.getBatch(jobId);
+      } catch {
+        return false;
+      }
+      if (isStale()) return false;
+
+      setJob(fetched);
+      setPartCount(fetched.total);
+      if (fetched.status === "running") {
+        setPhase("running");
+        void pollUntilDone(jobId, isStale);
+      } else {
+        setPhase("done");
+      }
+      return true;
+    },
+    [pollUntilDone]
+  );
+
+  return { job, phase, partCount, error, start, restore };
 }

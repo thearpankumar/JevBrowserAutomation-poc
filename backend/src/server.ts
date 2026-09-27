@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
   AddToCartResponse,
+  AddToDistrelecCartResponse,
   ApiErrorResponse,
   BatchJob,
   ComponentRequirement,
@@ -25,11 +26,14 @@ import { getConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { DigikeyOAuthClient } from "./digikey/oauth.js";
 import { addItemsToDigikeyCart } from "./digikey/mylists.js";
-import { parseAddToCartRequest } from "./digikey/cartRequest.js";
+import { getDistrelecSessionStatus, loadDistrelecSession } from "./distrelec/session.js";
+import { addItemsToDistrelecCart } from "./distrelec/cart.js";
+import { parseAddToCartRequest } from "./cartRequest.js";
 
 const webLog = logger.child({ component: "web" });
 const batchLog = logger.child({ component: "batch" });
 const digikeyOAuthLog = logger.child({ component: "digikey-oauth-route" });
+const distrelecCartLog = logger.child({ component: "distrelec-cart-route" });
 
 // Fail fast: a missing/bad .env stops the server from starting at all, with
 // one clear message — instead of surfacing as a confusing error on whichever
@@ -199,6 +203,42 @@ app.post("/api/digikey/cart/add", async (req, res) => {
   } catch (err) {
     digikeyOAuthLog.error({ err }, "add to DigiKey cart failed");
     sendError(res, 502, { error: errorMessage(err, "Adding to DigiKey cart failed.") });
+  }
+});
+
+// ---- Distrelec cart ----
+//
+// No per-user OAuth here: Distrelec's login is bot-protected (see
+// distrelec/navigate.ts), so this reuses one shared account's session,
+// captured by a person once via `npm run distrelec:login` — see
+// distrelec/session.ts. "Connected" below means that saved session is
+// present and not expired, not that this browser/user has connected anything.
+
+app.get("/api/distrelec/status", (_req, res) => {
+  res.json(getDistrelecSessionStatus());
+});
+
+app.post("/api/distrelec/cart/add", async (req, res) => {
+  const parsed = parseAddToCartRequest(req.body);
+  if (!parsed.ok) {
+    sendError(res, 400, { error: parsed.error });
+    return;
+  }
+
+  let session;
+  try {
+    session = loadDistrelecSession();
+  } catch (err) {
+    sendError(res, 409, { error: errorMessage(err, "No Distrelec session connected.") });
+    return;
+  }
+
+  try {
+    const result = await addItemsToDistrelecCart(session, parsed.items);
+    res.json(result satisfies AddToDistrelecCartResponse);
+  } catch (err) {
+    distrelecCartLog.error({ err }, "add to Distrelec cart failed");
+    sendError(res, 502, { error: errorMessage(err, "Adding to Distrelec cart failed.") });
   }
 });
 

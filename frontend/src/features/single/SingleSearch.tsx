@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from "react";
 import type { SourceResponse } from "@jev/shared";
 import { api, ApiError } from "../../api";
-import { SearchIcon } from "../../components/Icons";
+import { EmptySearchIcon, SearchIcon } from "../../components/Icons";
 import { StatusBanner, type Status } from "../../components/StatusBanner";
 import { SupplierResults } from "./SupplierResults";
+
+const EXAMPLE_PARTS = ["STM32F407VGT6", "LM358", "ATmega328P"];
 
 export function SingleSearch() {
   const [mpn, setMpn] = useState("");
@@ -11,11 +13,7 @@ export function SingleSearch() {
   const [status, setStatus] = useState<Status | null>(null);
   const [response, setResponse] = useState<SourceResponse | null>(null);
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const query = mpn.trim();
-    if (!query) return;
-
+  async function runSearch(query: string) {
     setSearching(true);
     setResponse(null);
     setStatus({ kind: "loading", message: `Searching DigiKey and Distrelec for "${query}"… this can take up to a minute.` });
@@ -33,6 +31,19 @@ export function SingleSearch() {
     } finally {
       setSearching(false);
     }
+  }
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const query = mpn.trim();
+    if (!query) return;
+    void runSearch(query);
+  }
+
+  function handleExampleClick(part: string) {
+    if (searching) return;
+    setMpn(part);
+    void runSearch(part);
   }
 
   return (
@@ -63,6 +74,24 @@ export function SingleSearch() {
       </form>
 
       <StatusBanner status={status} />
+
+      {!status && !response && (
+        <div className="empty-state">
+          <div className="empty-state-icon-wrap">
+            <EmptySearchIcon />
+          </div>
+          <p className="empty-state-title">Search a part to get started</p>
+          <p className="empty-state-sub">Try one of these:</p>
+          <div className="example-chips">
+            {EXAMPLE_PARTS.map((part) => (
+              <button key={part} type="button" className="example-chip" onClick={() => handleExampleClick(part)} disabled={searching}>
+                {part}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {response && <SupplierResults results={response.results} errors={response.errors} />}
     </>
   );

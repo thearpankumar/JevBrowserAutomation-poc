@@ -75,7 +75,7 @@ The frontend and backend communicate exclusively over the JSON API; there is no 
 | Supplier integration | DigiKey Product Information V4 API and MyLists API (OAuth 2.0) |
 | Logging              | Pino                                                           |
 | Testing              | Vitest, React Testing Library, Playwright (end-to-end)         |
-| Code quality         | ESLint, Prettier, TypeScript strict mode                       |
+| Code quality         | ESLint, Prettier, TypeScript strict mode, Knip (dead code)     |
 | CI                   | GitHub Actions                                                 |
 | Workspace management | npm workspaces                                                 |
 
@@ -117,10 +117,11 @@ docs/       Architecture, roadmap, and reference documentation
 npm test            # unit and component tests (backend and frontend) — no network access required
 npm run typecheck    # shared, backend, and frontend
 npm run lint
+npm run knip         # unused files, exports, and dependencies across all three workspaces
 npm run e2e          # real browser against the real suppliers, run manually
 ```
 
-CI (`.github/workflows/ci.yml`) runs linting, a format check, typechecking, the full test suite, and a production build on every push. `npm run e2e` is intentionally excluded from CI: it drives real DigiKey and Distrelec sessions and consumes real API quota. Run it manually against a running instance of the application:
+CI (`.github/workflows/ci.yml`) runs linting, a format check, typechecking, a dead-code check (knip, see `knip.json`), the full test suite, and a production build on every push. `npm run e2e` is intentionally excluded from CI: it drives real DigiKey and Distrelec sessions and consumes real API quota. Run it manually against a running instance of the application:
 
 ```bash
 npm run build && npm start   # production mode, on http://localhost:3000

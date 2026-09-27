@@ -27,6 +27,9 @@ jobs:
       - name: Typecheck (shared, backend, frontend)
         run: npm run typecheck
 
+      - name: Dead code check (knip)
+        run: npm run knip
+
       - name: Unit + component tests (backend, frontend)
         run: npm test
 

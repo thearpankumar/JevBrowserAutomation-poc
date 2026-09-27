@@ -1,14 +1,19 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BatchJob } from "@jev/shared";
 import { BatchPanel } from "./BatchPanel";
 import { POLL_INTERVAL_MS } from "../../hooks/useBatchJob";
+import { saveDigikeyReturnState, takeDigikeyReturnState } from "../../lib/digikeyReturn";
 import { navigateTo } from "../../lib/navigate";
 import { makeJob, makeNotFound, makeResult, makeRow } from "../../test/fixtures";
 import { mockFetch, requestBody } from "../../test/mockFetch";
 
 vi.mock("../../lib/navigate", () => ({ navigateTo: vi.fn() }));
+
+beforeEach(() => {
+  sessionStorage.clear();
+});
 
 const JOB_ID = "batch_1";
 
@@ -43,7 +48,7 @@ async function uploadAndRun(user: ReturnType<typeof userEvent.setup>, contents =
 }
 
 function renderPanel(props: Partial<Parameters<typeof BatchPanel>[0]> = {}) {
-  return render(<BatchPanel digikeyConnected={false} digikeyReturnOutcome={null} {...props} />);
+  return render(<BatchPanel digikeyConnected={false} digikeyReturnOutcome={null} distrelecConnected={false} {...props} />);
 }
 
 function checkbox(mpn: string, supplier: "DigiKey" | "Distrelec") {
@@ -299,15 +304,68 @@ describe("BatchPanel — DigiKey cart", () => {
 
     expect(screen.getByRole("button", { name: "Add to DigiKey cart" })).toBeDisabled();
   });
+});
 
-  it("keeps the Distrelec cart button disabled (not built yet)", async () => {
+describe("BatchPanel — Distrelec cart", () => {
+  it("keeps 'Add to Distrelec cart' disabled when no session is connected", async () => {
     const user = userEvent.setup();
     mockFetch(batchRoutes(doneJob()));
-    renderPanel({ digikeyConnected: true });
+    renderPanel({ distrelecConnected: false });
     await uploadAndRun(user);
 
-    const bar = (await screen.findByRole("button", { name: "Add to Distrelec cart" })).closest(".selection-bar") as HTMLElement;
-    expect(within(bar).getByRole("button", { name: "Add to Distrelec cart" })).toBeDisabled();
+    const button = await screen.findByRole("button", { name: "Add to Distrelec cart" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("title", expect.stringMatching(/no distrelec session connected/i));
+  });
+
+  it("disables 'Add to Distrelec cart' when nothing from Distrelec is selected, even when connected", async () => {
+    const user = userEvent.setup();
+    mockFetch(batchRoutes(doneJob()));
+    renderPanel({ distrelecConnected: true });
+    await uploadAndRun(user);
+    await screen.findByRole("table");
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+
+    expect(screen.getByRole("button", { name: "Add to Distrelec cart" })).toBeDisabled();
+  });
+
+  it("sends exactly the selected Distrelec items with their BOM quantities, and reports success plus any skipped items", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch({
+      ...batchRoutes(doneJob()),
+      "POST /api/distrelec/cart/add": {
+        body: { cartCode: "007IOBBW", addedCount: 1, skipped: [{ mpn: "RC0805FR-071KL", reason: "ambiguous" }] },
+      },
+    });
+    renderPanel({ distrelecConnected: true });
+    await uploadAndRun(user);
+    await screen.findByRole("table");
+    await user.click(checkbox("STM32F407VGT6", "Distrelec")); // needs-review match — not selected by default
+
+    await user.click(screen.getByRole("button", { name: "Add to Distrelec cart" }));
+
+    expect(await screen.findByText(/1 item\(s\) added to your Distrelec cart/)).toBeInTheDocument();
+    expect(screen.getByText(/RC0805FR-071KL: multiple matches on Distrelec/)).toBeInTheDocument();
+    expect(requestBody(fetchMock, "POST /api/distrelec/cart/add")).toEqual({
+      items: [{ mpn: "STM32F407VGT6", manufacturer: "ST", quantity: 25 }],
+    });
+  });
+
+  it("shows the server's error when adding to the Distrelec cart fails", async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      ...batchRoutes(doneJob()),
+      "POST /api/distrelec/cart/add": { status: 502, body: { error: "Distrelec add-to-cart failed: 500" } },
+    });
+    renderPanel({ distrelecConnected: true });
+    await uploadAndRun(user);
+    await screen.findByRole("table");
+    await user.click(checkbox("STM32F407VGT6", "Distrelec"));
+
+    await user.click(screen.getByRole("button", { name: "Add to Distrelec cart" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't add to Distrelec cart: Distrelec add-to-cart failed: 500");
   });
 });
 
@@ -330,5 +388,50 @@ describe("BatchPanel — DigiKey return banner", () => {
     await screen.findByRole("table");
 
     expect(screen.queryByText(/DigiKey account connected/)).toBeNull();
+  });
+});
+
+describe("BatchPanel — DigiKey redirect restore", () => {
+  it("saves the current batch and selections before redirecting to connect DigiKey", async () => {
+    const user = userEvent.setup();
+    mockFetch(batchRoutes(doneJob()));
+    renderPanel({ digikeyConnected: false });
+    await uploadAndRun(user);
+    await screen.findByRole("table");
+    await user.click(checkbox("STM32F407VGT6", "DigiKey")); // uncheck a confirmed match before leaving
+
+    await user.click(screen.getByRole("button", { name: "Connect DigiKey account" }));
+
+    expect(navigateTo).toHaveBeenCalledWith("/api/digikey/oauth/start");
+    const saved = takeDigikeyReturnState();
+    expect(saved?.jobId).toBe(JOB_ID);
+    expect(saved?.choices.get("0:0")).toBe(false);
+  });
+
+  it("restores the batch and its selections on landing back from a successful DigiKey connection", async () => {
+    mockFetch({ [`GET /api/batch/${JOB_ID}`]: { body: doneJob() } });
+    saveDigikeyReturnState(JOB_ID, new Map([["0:0", false]])); // user had unchecked the confirmed STM32/DigiKey match
+
+    renderPanel({ digikeyReturnOutcome: "connected" });
+
+    await screen.findByRole("table");
+    expect(checkbox("STM32F407VGT6", "DigiKey")).not.toBeChecked();
+    expect(checkbox("RC0805FR-071KL", "DigiKey")).toBeChecked(); // untouched key keeps its default
+    expect(takeDigikeyReturnState()).toBeNull(); // one-shot: consumed, not replayable on refresh
+  });
+
+  it("shows a fallback message when the previous batch can't be restored", async () => {
+    mockFetch({ [`GET /api/batch/${JOB_ID}`]: { status: 404, body: { error: "not found" } } });
+    saveDigikeyReturnState(JOB_ID, new Map());
+
+    renderPanel({ digikeyReturnOutcome: "connected" });
+
+    expect(await screen.findByText(/couldn't restore your previous batch/i)).toBeInTheDocument();
+  });
+
+  it("shows the plain connected message when there was nothing to restore", () => {
+    renderPanel({ digikeyReturnOutcome: "connected" });
+
+    expect(screen.getByText("✓ DigiKey account connected.")).toBeInTheDocument();
   });
 });

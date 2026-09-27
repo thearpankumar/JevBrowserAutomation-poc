@@ -1,4 +1,4 @@
-import type { BomRowError, SourcingResult } from "@jev/shared";
+import type { BomRowError, DistrelecSkippedItem, SourcingResult } from "@jev/shared";
 
 const EMPTY = "—";
 
@@ -18,4 +18,15 @@ export function formatSubtotal(subtotal: number, currency: string | null): strin
 /** Row 0 means "the whole file" (e.g. "this looks like an Excel file"), so it gets no row prefix. */
 export function formatRowError(e: BomRowError): string {
   return e.row > 0 ? `Row ${e.row}: ${e.message}` : e.message;
+}
+
+export function formatSkippedReason(reason: DistrelecSkippedItem["reason"]): string {
+  switch (reason) {
+    case "ambiguous":
+      return "multiple matches on Distrelec — resolve manually";
+    case "not_found":
+      return "not found on Distrelec";
+    case "unavailable":
+      return "out of stock on Distrelec";
+  }
 }

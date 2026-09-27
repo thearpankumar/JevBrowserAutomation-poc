@@ -11,7 +11,7 @@ export function isNotFoundResult(r: Pick<SourcingResult, "manufacturer" | "price
   return r.manufacturer == null && r.price == null && r.sourceUrl == null;
 }
 
-export type ConfidenceClass = "accept" | "review" | "reject";
+type ConfidenceClass = "accept" | "review" | "reject";
 
 export interface ConfidenceBadgeInfo {
   cls: ConfidenceClass;

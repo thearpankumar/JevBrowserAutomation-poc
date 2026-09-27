@@ -113,3 +113,24 @@ export interface AddToCartResponse {
   listId: string;
   addedIdentifiers: string[];
 }
+
+/** GET /api/distrelec/status */
+export interface DistrelecStatusResponse {
+  connected: boolean;
+  /** ISO timestamp; present only when connected: true. */
+  expiresAt?: string;
+}
+
+/** POST /api/distrelec/cart/add */
+export interface DistrelecSkippedItem {
+  mpn: string;
+  /** Distrelec found more than one product for this MPN and needs a person to pick one on its own site; found no product at all for it; or found it but it's out of stock. */
+  reason: "ambiguous" | "not_found" | "unavailable";
+}
+
+export interface AddToDistrelecCartResponse {
+  /** null when nothing matched — no cart was touched. */
+  cartCode: string | null;
+  addedCount: number;
+  skipped: DistrelecSkippedItem[];
+}
