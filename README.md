@@ -29,6 +29,13 @@ No manufacturer is taken as input. A part number can genuinely match more than o
 - Selected items are added to a new list in the user's DigiKey account via the MyLists API.
 - Checkout is never automated; the user completes the purchase on DigiKey's own site.
 
+**Distrelec cart integration**
+
+- No per-user OAuth — Distrelec's login page is bot-protected, so one shared account's session is captured once by a person (`npm run distrelec:login`) and reused for cart requests. See [Architecture](./docs/ARCHITECTURE.md) for why.
+- Selected items are submitted to Distrelec's own "Bill of materials" tool (the same endpoints [distrelec.ch/en/bom-tool](https://www.distrelec.ch/en/bom-tool) uses), which matches each MPN and adds the matches to a cart.
+- An MPN that matches more than one product is left for a person to resolve on Distrelec's own site rather than guessed at; these are reported back as skipped items.
+- The captured session is short-lived (observed ~2 hours); once it expires, `npm run distrelec:login` needs to be run again.
+
 ## Architecture
 
 ```mermaid
@@ -155,6 +162,14 @@ DIGIKEY_CLIENT_SECRET=...
 DIGIKEY_USE_SANDBOX=false
 DIGIKEY_OAUTH_REDIRECT_URI=...          # only required for DigiKey cart connection
 APP_BASE_URL=http://localhost:5173      # development only; leave empty in production
+DISTRELEC_TEST_EMAIL=...                # only required for Distrelec cart connection
+DISTRELEC_TEST_PASSWORD=...             # only required for Distrelec cart connection
+```
+
+For Distrelec cart integration, also capture a session once — this opens a real, visible browser window for you to log in by hand (Distrelec's login page blocks automated sign-in):
+
+```bash
+npm run distrelec:login -w @jev/backend
 ```
 
 | Command                                   | Description                                                                                                               |

@@ -109,9 +109,26 @@ Checkout is never automated — the user completes the purchase on DigiKey's own
 
 The connection is currently a single slot for the whole running server process, not tied to an individual user — there is no per-user account system yet.
 
+Selecting items across DigiKey's OAuth redirect would normally lose the in-progress batch: the redirect is a full-page navigation, which wipes all in-memory React state. `frontend/src/lib/digikeyReturn.ts` saves the batch's job ID and per-row selection choices to `sessionStorage` right before the redirect (`BatchPanel.handleConnectDigikey`), and `BatchPanel` reads and clears that state once on mount, re-fetching the job from `GET /api/batch/:id` and restoring the selections. `sessionStorage` survives the round trip because it's scoped to `(origin, tab)`, not to whatever page loaded in between. If the job can no longer be found (e.g. the server restarted and lost its in-memory job store), the restore fails gracefully and tells the user to re-run the batch instead of silently discarding their DigiKey connection.
+
+## Distrelec account connection and cart
+
+Distrelec's cart uses a different approach from DigiKey's, because Distrelec's login page itself is bot-protected — a per-user OAuth-style flow isn't viable when the automated part of that flow (signing in) is exactly what gets blocked (see "Known limitations" below). Instead, one shared account's session is captured by a real person, once, and reused server-side:
+
+1. A person runs `npm run distrelec:login -w @jev/backend`, which opens a real, visible Chromium window (`backend/src/distrelec/captureSession.ts`) and waits for them to log in and clear any bot check by hand.
+2. Playwright's storage state (cookies + `localStorage`) is saved to `backend/.distrelec-session.json` (gitignored — this is a live credential, not committed).
+3. `backend/src/distrelec/session.ts` reads the bearer token out of that file's `spartacus⚿⚿auth` `localStorage` entry on each request. The token is short-lived (observed ~2 hours) with no client-accessible refresh token, so once it expires, the only fix is repeating step 1 — there is no silent refresh.
+4. `POST /api/distrelec/cart/add` (`backend/src/distrelec/cart.ts`) submits selected items to Distrelec's own "Bill of materials" tool API — the same endpoints [distrelec.ch/en/bom-tool](https://www.distrelec.ch/en/bom-tool) calls from the browser — rather than driving that page with Playwright: review the BOM (matches, duplicates, unavailable, not-found), get-or-create a cart, then bulk-add the matched products.
+
+As with DigiKey, an MPN matching more than one product is never guessed at — it's reported back as a skipped item (`reason: "ambiguous"`) for a person to resolve on Distrelec's own site. Checkout is likewise never automated.
+
+The connection is a single shared-account slot for the whole server process, same as DigiKey's current state — there is no per-user Distrelec account system.
+
 ## Known limitations
 
 - **Distrelec runs in headed (visible) browser mode, not headless.** Distrelec runs Radware Bot Manager. A default headless launch is challenged or blocked immediately, keyed off the `HeadlessChrome` user-agent string; a spoofed-user-agent headless attempt worked once but was inconsistently blocked on repeat requests. Headed mode is the only approach that has been reliable in testing. This is not viable as-is on a typical server, which has no display — the planned fix is running headed Chromium under a virtual display (Xvfb).
+- **Distrelec's login page specifically adds an invisible reCAPTCHA gate on top of Radware** — a real click on the sign-in submit button registers, but no login network call ever fires when done via Playwright's automated click. This is why cart integration captures a real person's session (see "Distrelec account connection and cart" above) instead of automating the login itself.
+- **Distrelec cart hasn't been verified against a real add-to-cart call yet.** The BOM-review, cart-lookup, and bulk-add endpoints were confirmed against real, live calls while building the feature, but `unavailableProducts` in the BOM-review response (one of the "why was this item skipped" buckets) was never reproduced live and is extracted defensively rather than assumed. A full run through the UI against a live cart hasn't happened yet.
 - **Distrelec's catalog genuinely differs from DigiKey's.** Several real, common parts (`LM358P`, `NE555P`, a specific TE Connectivity connector) return zero results directly from Distrelec's own search backend — confirmed by testing broader search terms (for example, `LM358` without the exact suffix returns real results under different package variants). This reflects real inventory differences between distributors, not a defect in the pipeline.
 - **The DOM-scraping fallback paths are lightly tested.** Since the API-first approach became the primary path, the DOM-scrape fallback (`extractCandidates`, `parseProductFields`) rarely executes and has not been exercised as thoroughly as the primary path.
 - **The DigiKey MyLists "create list" response field for the new list's ID has not been confirmed against a live call.** The code checks several plausible field-name casings and fails with a clear error if none match, rather than silently proceeding with an incorrect value.
